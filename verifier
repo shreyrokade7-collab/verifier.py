@@ -1,0 +1,51 @@
+from urllib.parse import urlparse, parse_qs
+
+def verify_github_url(url):
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+
+    result = {
+        "success": False,
+        "reason": "",
+        "evidence": {}
+    }
+
+    # Check path
+    if "microsoft/playwright" not in parsed.path:
+        result["reason"] = "Incorrect repository"
+        return result
+
+    # Check query params
+    q = query.get("q", [""])[0]
+
+    checks = {
+        "is_issue": "is:issue" in q,
+        "is_open": "is:open" in q,
+        "label_bug": "label:bug" in q
+    }
+
+    result["evidence"] = checks
+
+    if all(checks.values()):
+        result["success"] = True
+        result["reason"] = "All conditions satisfied"
+    else:
+        result["reason"] = "Missing required filters"
+
+    return result
+
+
+# 🔹 Example Run
+url = "https://github.com/microsoft/playwright/issues?q=is:issue+is:open+label:bug"
+
+
+      {
+ 'success': True,
+ 'reason': 'All conditions satisfied',
+ 'evidence': {
+     'is_issue': True,
+     'is_open': True,
+     'label_bug': True
+ }
+}
+print(verify_github_url(url))
