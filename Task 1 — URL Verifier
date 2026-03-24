@@ -1,0 +1,78 @@
+from urllib.parse import urlparse, parse_qs, unquote
+import math
+
+def is_nan(value):
+    """Handle NaN safely"""
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+def verify_github_url(url):
+    result = {
+        "pass": False,
+        "missing": [],
+        "reason": "",
+        "extracted_query": None
+    }
+
+    # Handle NaN / invalid input
+    if is_nan(url) or not isinstance(url, str) or url.strip() == "":
+        result["reason"] = "Invalid or NaN URL input"
+        return result
+
+    try:
+        parsed = urlparse(url)
+        query_params = parse_qs(parsed.query)
+
+        if "q" not in query_params:
+            result["reason"] = "Missing 'q' parameter in URL"
+            return result
+
+        query = unquote(query_params["q"][0])
+        result["extracted_query"] = query
+
+        required_terms = [
+            "repo:microsoft/playwright",
+            "is:issue",
+            "is:open",
+            "label:bug"
+        ]
+
+        missing = [term for term in required_terms if term not in query]
+
+        if not missing:
+            result["pass"] = True
+            result["reason"] = "All required filters present"
+        else:
+            result["missing"] = missing
+            result["reason"] = "Missing required filters"
+
+    except Exception as e:
+        result["reason"] = f"Error parsing URL: {str(e)}"
+
+    return result
+
+
+# 🔹 Example Test Cases
+urls = [
+    "https://github.com/search?q=repo%3Amicrosoft%2Fplaywright+is%3Aissue+is%3Aopen+label%3Abug",
+    "https://github.com/search?q=is%3Aissue+label%3Abug",
+    None,
+    float('nan')
+]
+
+for url in urls:
+    print("\nInput:", url)
+    print("Output:", verify_github_url(url))
+
+Output:
+
+    Input: https://github.com/search?q=repo%3Amicrosoft%2Fplaywright+is%3Aissue+is%3Aopen+label%3Abug
+Output: {'pass': True, 'missing': [], 'reason': 'All required filters present', 'extracted_query': 'repo:microsoft/playwright is:issue is:open label:bug'}
+
+Input: https://github.com/search?q=is%3Aissue+label%3Abug
+Output: {'pass': False, 'missing': ['repo:microsoft/playwright', 'is:open'], 'reason': 'Missing required filters', 'extracted_query': 'is:issue label:bug'}
+
+Input: None
+Output: {'pass': False, 'missing': [], 'reason': 'Invalid or NaN URL input', 'extracted_query': None}
+
+Input: nan
+Output: {'pass': False, 'missing': [], 'reason': 'Invalid or NaN URL input', 'extracted_query': None}
