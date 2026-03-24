@@ -1,0 +1,59 @@
+from bs4 import BeautifulSoup
+
+def verify_html_issues(html):
+    result = {
+        "pass": False,
+        "issues_found": 0,
+        "titles": [],
+        "reason": ""
+    }
+
+    if html is None or html.strip() == "":
+        result["reason"] = "Empty or NaN HTML"
+        return result
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        issues = soup.find_all("a", class_="Link--primary")
+
+        titles = [issue.text.strip() for issue in issues if issue.text.strip() != ""]
+
+        # Remove NaN-like values
+        titles = [t for t in titles if t and t.lower() != "nan"]
+
+        result["issues_found"] = len(titles)
+        result["titles"] = titles
+
+        if len(titles) > 0:
+            result["pass"] = True
+            result["reason"] = "Issues successfully extracted"
+        else:
+            result["reason"] = "No valid issues found"
+
+    except Exception as e:
+        result["reason"] = f"Parsing error: {str(e)}"
+
+    return result
+
+
+# 🔹 Example HTML
+html_sample = """
+<html>
+  <body>
+    <a class="Link--primary">Fix login bug</a>
+    <a class="Link--primary">Crash on startup</a>
+    <a class="Link--primary">NaN</a>
+  </body>
+</html>
+"""
+
+print(verify_html_issues(html_sample))
+
+Output:
+{
+ 'pass': True,
+ 'issues_found': 2,
+ 'titles': ['Fix login bug', 'Crash on startup'],
+ 'reason': 'Issues successfully extracted'
+}
