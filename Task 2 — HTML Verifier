@@ -1,0 +1,41 @@
+from bs4 import BeautifulSoup
+
+def verify_issues_html(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    
+    # GitHub issue titles usually in <a> with class 'Link--primary'
+    issues = soup.select("a.Link--primary")
+    
+    if not issues:
+        return {
+            "status": "fail",
+            "reason": "No issues found"
+        }
+    
+    titles = [issue.get_text(strip=True) for issue in issues[:5]]
+    
+    return {
+        "status": "pass",
+        "count": len(issues),
+        "sample_titles": titles
+    }
+
+
+# 🔍 Sample HTML
+html_sample = """
+<html>
+<body>
+<a class="Link--primary">Bug in login</a>
+<a class="Link--primary">Crash on load</a>
+</body>
+</html>
+"""
+
+output:
+{
+  'status': 'pass',
+  'count': 2,
+  'sample_titles': ['Bug in login', 'Crash on load']
+}
+
+print(verify_issues_html(html_sample))
