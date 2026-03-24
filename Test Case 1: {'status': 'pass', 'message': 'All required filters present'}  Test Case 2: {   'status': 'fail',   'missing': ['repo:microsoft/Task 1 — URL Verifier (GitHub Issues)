@@ -1,0 +1,52 @@
+from urllib.parse import urlparse, parse_qs, unquote
+
+def verify_github_url(url):
+    required_filters = [
+        "repo:microsoft/playwright",
+        "is:issue",
+        "is:open",
+        "label:bug"
+    ]
+    
+    # Parse URL
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+    
+    # Extract 'q' parameter (GitHub search query)
+    if 'q' not in query_params:
+        return {"status": "fail", "reason": "Missing 'q' parameter"}
+    
+    query = unquote(query_params['q'][0])
+    
+    missing_filters = []
+    for f in required_filters:
+        if f not in query:
+            missing_filters.append(f)
+    
+    if missing_filters:
+        return {
+            "status": "fail",
+            "missing": missing_filters
+        }
+    
+    return {
+        "status": "pass",
+        "message": "All required filters present"
+    }
+
+
+# 🔍 Test Cases
+url1 = "https://github.com/search?q=repo%3Amicrosoft%2Fplaywright+is%3Aissue+is%3Aopen+label%3Abug"
+url2 = "https://github.com/search?q=is%3Aissue+label%3Abug"
+
+print("Test Case 1:", verify_github_url(url1))
+print("Test Case 2:", verify_github_url(url2))
+
+Output:
+
+Test Case 1: {'status': 'pass', 'message': 'All required filters present'}
+
+Test Case 2: {
+  'status': 'fail',
+  'missing': ['repo:microsoft/playwright', 'is:open']
+}
