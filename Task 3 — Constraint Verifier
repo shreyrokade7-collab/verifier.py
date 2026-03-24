@@ -1,0 +1,53 @@
+def verify_constraints(titles, min_required=3):
+    result = {
+        "pass": False,
+        "total": 0,
+        "duplicates": [],
+        "reason": ""
+    }
+
+    if titles is None:
+        result["reason"] = "Titles input is NaN"
+        return result
+
+    # Remove NaN / invalid
+    clean_titles = [
+        t for t in titles
+        if t and isinstance(t, str) and t.lower() != "nan"
+    ]
+
+    result["total"] = len(clean_titles)
+
+    # Find duplicates
+    seen = set()
+    duplicates = set()
+
+    for t in clean_titles:
+        if t in seen:
+            duplicates.add(t)
+        seen.add(t)
+
+    result["duplicates"] = list(duplicates)
+
+    if len(clean_titles) >= min_required and not duplicates:
+        result["pass"] = True
+        result["reason"] = "All constraints satisfied"
+    else:
+        result["reason"] = "Constraints failed"
+
+    return result
+
+
+# 🔹 Example
+titles = ["Fix login bug", "Crash", "Crash", "NaN"]
+
+print(verify_constraints(titles))
+
+Output:
+
+{
+ 'pass': False,
+ 'total': 3,
+ 'duplicates': ['Crash'],
+ 'reason': 'Constraints failed'
+}
