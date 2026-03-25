@@ -1,0 +1,101 @@
+import requests
+from bs4 import BeautifulSoup
+
+def clean_value(value):
+    """Normalize missing/empty values to 'NaN'"""
+    if value is None:
+        return "NaN"
+    value = value.strip()
+    return value if value else "NaN"
+
+
+def verify_taj_mahal_page(url):
+    result = {
+        "success": False,
+        "reason": "",
+        "evidence": {
+            "pageTitle": "NaN",
+            "extractedLocation": "NaN",
+            "selectors": {
+                "title": "h1#firstHeading",
+                "location": "infobox -> Location row"
+            }
+        }
+    }
+
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # 🔹 Extract Title
+        title_tag = soup.select_one("h1#firstHeading")
+        page_title = clean_value(title_tag.text if title_tag else None)
+
+        # 🔹 Extract Location
+        location = None
+        infobox = soup.find("table", class_="infobox")
+
+        if infobox:
+            for row in infobox.find_all("tr"):
+                header = row.find("th")
+                if header and "location" in header.text.lower():
+                    data = row.find("td")
+                    if data:
+                        location = data.text
+                        break
+
+        location = clean_value(location)
+
+        # Save evidence
+        result["evidence"]["pageTitle"] = page_title
+        result["evidence"]["extractedLocation"] = location
+
+        # 🔹 NaN Handling Checks
+        if page_title == "NaN":
+            result["reason"] = "Title not found (NaN)"
+            return result
+
+        if location == "NaN":
+            result["reason"] = "Location not found in infobox (NaN)"
+            return result
+
+        # 🔹 Validation
+        title_check = "taj mahal" in page_title.lower()
+        location_check = "agra" in location.lower()
+
+        if title_check and location_check:
+            result["success"] = True
+            result["reason"] = "Page title contains 'Taj Mahal' and location contains 'Agra'"
+        else:
+            result["reason"] = "Validation failed (title or location mismatch)"
+
+    except Exception as e:
+        result["reason"] = f"Error occurred: {str(e)}"
+
+    return result
+
+
+# 🔍 Test Cases
+urls = [
+    "https://en.wikipedia.org/wiki/Taj_Mahal",
+    "https://en.wikipedia.org/wiki/Eiffel_Tower",
+    "https://en.wikipedia.org/wiki/Agra"
+]
+
+for u in urls:
+    print(f"\nTesting: {u}")
+    print(verify_taj_mahal_page(u))
+
+output:
+{
+  "success": true,
+  "reason": "Page title contains 'Taj Mahal' and location contains 'Agra'",
+  "evidence": {
+    "pageTitle": "Taj Mahal",
+    "extractedLocation": "Agra, Uttar Pradesh, India",
+    "selectors": {
+      "title": "h1#firstHeading",
+      "location": "infobox -> Location row"
+    }
+  }
+}
