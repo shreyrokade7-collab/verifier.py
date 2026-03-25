@@ -1,0 +1,148 @@
+from bs4 import BeautifulSoup
+
+def clean_value(value, value_type="str"):
+    """Normalize missing/invalid values to NaN-safe format"""
+    if value is None:
+        return None
+    
+    value = value.strip()
+    if value == "":
+        return None
+
+    # Convert types safely
+    try:
+        if value_type == "int":
+            return int(value)
+        return value
+    except:
+        return None
+
+
+def verify_from_html(html_string, constraints):
+    result = {
+        "success": False,
+        "reason": "",
+        "evidence": {
+            "price": None,
+            "city": None,
+            "bedrooms": None,
+            "selectors": {
+                "price": "[data-price]",
+                "city": "[data-city]",
+                "bedrooms": "[data-bedrooms]"
+            }
+        }
+    }
+
+    try:
+        soup = BeautifulSoup(html_string, "html.parser")
+
+        # Extract first listing (assumption: one main listing)
+        listing = soup.find(attrs={"data-price": True})
+
+        if not listing:
+            result["reason"] = "Listing element not found (NaN)"
+            return result
+
+        # 🔹 Extract values
+        price = clean_value(listing.get("data-price"), "int")
+        city = clean_value(listing.get("data-city"), "str")
+        bedrooms = clean_value(listing.get("data-bedrooms"), "int")
+
+        # Save evidence
+        result["evidence"]["price"] = price
+        result["evidence"]["city"] = city
+        result["evidence"]["bedrooms"] = bedrooms
+
+        # 🔹 NaN Checks
+        if price is None:
+            result["reason"] = "Price missing or invalid (NaN)"
+            return result
+
+        if city is None:
+            result["reason"] = "City missing or invalid (NaN)"
+            return result
+
+        if bedrooms is None:
+            result["reason"] = "Bedrooms missing or invalid (NaN)"
+            return result
+
+        # 🔹 Constraint Checks
+        max_price = constraints["max_price"]
+        expected_city = constraints["city"].lower()
+        expected_bedrooms = constraints["bedrooms"]
+
+        price_check = price <= max_price
+        city_check = city.lower() == expected_city
+        bedroom_check = bedrooms == expected_bedrooms
+
+        if price_check and city_check and bedroom_check:
+            result["success"] = True
+            result["reason"] = (
+                f"All constraints satisfied: price {price} ≤ {max_price}, "
+                f"city '{city}' matches, bedrooms {bedrooms} = {expected_bedrooms}"
+            )
+        else:
+            failures = []
+            if not price_check:
+                failures.append(f"price {price} > {max_price}")
+            if not city_check:
+                failures.append(f"city '{city}' != '{constraints['city']}'")
+            if not bedroom_check:
+                failures.append(f"bedrooms {bedrooms} != {expected_bedrooms}")
+
+            result["reason"] = "Validation failed: " + ", ".join(failures)
+
+    except Exception as e:
+        result["reason"] = f"Error occurred: {str(e)}"
+
+    return result
+
+
+# 🔍 TEST DATA (Simulating your HTML files)
+
+html_pass = """
+<div class="listing" data-price="2800" data-city="Pune" data-bedrooms="2"></div>
+"""
+
+html_fail = """
+<div class="listing" data-price="4500" data-city="Mumbai" data-bedrooms="3"></div>
+"""
+
+html_nan = """
+<div class="listing" data-price="" data-city="" data-bedrooms=""></div>
+"""
+
+constraints = {
+    "max_price": 3000,
+    "city": "Pune",
+    "bedrooms": 2
+}
+
+# 🔹 Run Tests
+print("\nPASS CASE:")
+print(verify_from_html(html_pass, constraints))
+
+print("\nFAIL CASE:")
+print(verify_from_html(html_fail, constraints))
+
+print("\nNaN EDGE CASE:")
+print(verify_from_html(html_nan, constraints))
+
+
+Output:
+
+{
+  "success": true,
+  "reason": "All constraints satisfied: price 2800 ≤ 3000, city 'Pune' matches, bedrooms 2 = 2",
+  "evidence": {
+    "price": 2800,
+    "city": "Pune",
+    "bedrooms": 2,
+    "selectors": {
+      "price": "[data-price]",
+      "city": "[data-city]",
+      "bedrooms": "[data-bedrooms]"
+    }
+  }
+}
